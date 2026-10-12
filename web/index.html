@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#e9efe6">
+    <title>さらさら岩 配置計算</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="app.js" defer></script>
+</head>
+
+<body>
+    <div class="page-shell">
+        <header class="topbar">
+            <a class="wordmark" href="#top" aria-label="さらさら岩配置計算">
+                <span class="wordmark-icon" aria-hidden="true">SR</span>
+                <span class="wordmark-text">FIELD NOTES<br><strong>PLACEMENT TOOL</strong></span>
+            </a>
+            <span class="local-indicator"><span aria-hidden="true"></span> LOCAL / OFFLINE</span>
+        </header>
+
+        <main id="top">
+            <section class="intro" aria-labelledby="page-title">
+                <p class="eyebrow">POKOPIA · DRYING COVERAGE</p>
+                <h1 id="page-title">さらさら岩<br><span>配置計算</span></h1>
+                <p class="intro-copy">全ての乾燥対象をカバーし、選択した指標に合わせて配置を最適化します。</p>
+            </section>
+
+            <div class="workspace">
+                <section class="settings" aria-labelledby="settings-title">
+                    <div class="section-heading">
+                        <span class="section-index">01</span>
+                        <div>
+                            <h2 id="settings-title">地形と条件</h2>
+                            <p>Pattern &amp; constraints</p>
+                        </div>
+                    </div>
+
+                    <form id="optimizer-form" novalidate>
+                        <label class="field" for="pattern-input">
+                            <span class="field-label">1次元パターン <small>Pattern</small></span>
+                            <input id="pattern-input" name="pattern" type="text" value="[s][d][s][d][s]"
+                                autocomplete="off" spellcheck="false" required>
+                            <span class="field-hint">s = 乾燥不要 / d = 乾燥対象</span>
+                        </label>
+
+                        <div class="field-row">
+                            <label class="field" for="rows-input">
+                                <span class="field-label">繰り返し行数 <small>Rows</small></span>
+                                <input id="rows-input" name="rows" type="number" value="10" min="1" step="1" required>
+                            </label>
+                            <label class="field" for="stone-limit-input">
+                                <span class="field-label">岩の上限 <small>Stone limit</small></span>
+                                <input id="stone-limit-input" name="stoneLimit" type="number" value="3" min="0" step="1"
+                                    required>
+                            </label>
+                        </div>
+
+                        <label class="efficiency-option" for="efficiency-input">
+                            <input id="efficiency-input" name="efficiency" type="checkbox">
+                            <span class="checkbox-mark" aria-hidden="true"></span>
+                            <span class="efficiency-copy">
+                                効率を優先する
+                                <small>Maximize coverage per rock</small>
+                                <span>被覆数合計 ÷ 岩の数。同率なら重複数、次に岩数を優先。</span>
+                            </span>
+                        </label>
+
+                        <div class="model-strip">
+                            <span class="model-mark" aria-hidden="true">5</span>
+                            <p>水平方向の効果範囲はマンハッタン距離5。<br><small>Manhattan radius 5 · same-height model</small></p>
+                        </div>
+
+                        <p id="error-message" class="error-message" role="alert" hidden></p>
+                        <button class="submit-button" type="submit">
+                            <span>配置を計算</span>
+                            <span class="button-en">Calculate placement</span>
+                            <span class="button-arrow" aria-hidden="true">↗</span>
+                        </button>
+                    </form>
+
+                    <p class="priority-note"><span>優先順位</span> <span id="optimization-summary">全件カバー → 重複数最大化</span></p>
+                </section>
+
+                <section class="results" aria-labelledby="results-title" aria-live="polite">
+                    <div class="section-heading result-heading">
+                        <span class="section-index">02</span>
+                        <div>
+                            <h2 id="results-title">配置結果</h2>
+                            <p>Coverage &amp; overlap</p>
+                        </div>
+                        <span id="result-badge" class="result-badge" hidden>OPTIMIZED</span>
+                    </div>
+
+                    <div id="empty-state" class="empty-state">
+                        <span class="empty-glyph" aria-hidden="true">···</span>
+                        <p>条件を入力して配置を計算してください。</p>
+                        <small>Enter the conditions to calculate a placement.</small>
+                    </div>
+
+                    <div id="result-panel" hidden>
+                        <div class="metrics">
+                            <div class="metric">
+                                <span class="metric-value" id="stone-count">0</span>
+                                <span class="metric-label">使用する岩 <small>Stones</small></span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-value" id="target-count">0 / 0</span>
+                                <span class="metric-label">カバー対象 <small>Targets covered</small></span>
+                            </div>
+                            <div class="metric metric-accent">
+                                <span class="metric-value" id="overlap-count">0</span>
+                                <span class="metric-label">被覆数合計 <small>Overlap score</small></span>
+                            </div>
+                            <div class="metric metric-efficiency">
+                                <span class="metric-value" id="efficiency-score">—</span>
+                                <span class="metric-label">岩1個あたり <small>Overlap per rock</small></span>
+                            </div>
+                        </div>
+
+                        <div class="legend" aria-label="地形の凡例 / Grid legend">
+                            <span><i class="legend-s">S</i> 乾燥不要</span>
+                            <span><i class="legend-d">D</i> カバー済み</span>
+                            <span><i class="legend-r">R</i> 岩の位置</span>
+                        </div>
+
+                        <div class="grid-scroll" tabindex="0"
+                            aria-label="配置図。横にスクロールできます / Placement grid. Scroll horizontally.">
+                            <div id="grid-output" class="grid-output" role="grid"></div>
+                        </div>
+
+                        <div class="coordinates">
+                            <span class="coordinates-label">岩の座標 <small>Coordinates (row, column;
+                                    0-based)</small></span>
+                            <p id="coordinate-list">なし / None</p>
+                        </div>
+
+                        <p class="score-note">重複回数は各 d マスの被覆数の合計です。乾燥判定頻度の代理指標であり、実際の乾燥時間ではありません。
+                            <span>Overlap is the sum of coverage counts for all d cells. It is a proxy metric, not
+                                actual drying time.</span>
+                        </p>
+                    </div>
+                </section>
+            </div>
+
+            <footer class="page-footer">
+                <span>LOCAL MODEL · NOT VERIFIED IN-GAME</span>
+                <span>高さは全マス同一として計算</span>
+            </footer>
+        </main>
+    </div>
+</body>
+
+</html>
